@@ -1,0 +1,15 @@
+# Secrets. This file holds the Slack tokens, the Groq key and the production
+# database URL — none of it belongs in a repository.
+.env
+.env.local
+.env.*.local
+
+# Installed packages. package.json and package-lock.json are enough to
+# reproduce these; committing them adds tens of thousands of files.
+node_modules/
+
+# Logs and OS clutter
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
