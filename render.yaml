@@ -1,0 +1,29 @@
+# The bot uses Socket Mode, so it opens an outbound WebSocket to Slack rather
+# than receiving webhooks. That means a background worker, not a web service —
+# it needs no inbound port and no public URL.
+services:
+  - type: worker
+    name: visionbot-slack
+    runtime: node
+    plan: starter          # free workers spin down; a bot that sleeps is not a bot
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: SLACK_BOT_TOKEN
+        sync: false        # set in the dashboard, never in the repo
+      - key: SLACK_APP_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-20b
+      - key: DB_HOST
+        value: aws-1-eu-west-2.pooler.supabase.com
+      - key: DB_PORT
+        value: 5432
+      - key: DB_NAME
+        value: postgres
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
