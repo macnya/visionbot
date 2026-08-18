@@ -269,10 +269,15 @@ const ENTRIES = [
   },
 ];
 
-// Finds entries matching a question. Two ways, because staff don't phrase
-// things the way the entry title does: keyword array overlap, and a text match
-// on the question itself. So "how many leave days" reaches the annual leave
-// entry even though neither wording matches exactly.
+// Finds entries matching a question, ranked by how many of the asker's words
+// each entry actually matches.
+//
+// An earlier version used LIMIT 3 with no ORDER BY, which returns whichever
+// rows Postgres finds first — insertion order. The leave entries were seeded
+// first, so "what do I do with company assets when I leave" got three
+// annual-leave answers and never saw the clearance entry that matched it
+// exactly, scoring 6 against their 2. The model then correctly said it had
+// nothing, which read as a gap in the knowledge base rather than a bug here.
 async function searchKnowledgeBase(query, category = null) {
   const terms = String(query || '')
     .toLowerCase()
@@ -284,7 +289,13 @@ async function searchKnowledgeBase(query, category = null) {
 
   const params = [terms];
   let sql = `
-    SELECT question, answer, category
+    SELECT question, answer, category,
+           (SELECT COUNT(*) FROM unnest($1::text[]) AS t
+            WHERE LOWER(question) LIKE '%' || t || '%')
+         + (SELECT COUNT(*) FROM unnest($1::text[]) AS t
+            WHERE EXISTS (SELECT 1 FROM unnest(keywords) AS k
+                          WHERE LOWER(k) LIKE '%' || t || '%'))
+           AS score
     FROM knowledge_base
     WHERE (
       keywords && $1::text[]
@@ -300,12 +311,15 @@ async function searchKnowledgeBase(query, category = null) {
     sql += ` AND category = $${params.length}`;
   }
 
-  // Three at most: the model is summarising, and more context makes the answer
-  // vaguer rather than better.
-  sql += ' LIMIT 3';
+  sql += ' ORDER BY score DESC, id LIMIT 3';
 
   const { rows } = await pool.query(sql, params);
-  return rows;
+
+  // Only the best match and anything close to it. Passing three loosely-related
+  // entries makes the answer vaguer, not better.
+  if (!rows.length) return [];
+  const best = Number(rows[0].score);
+  return rows.filter((r) => Number(r.score) >= best - 1);
 }
 
 async function main() {
