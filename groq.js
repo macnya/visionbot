@@ -24,7 +24,10 @@ async function askGroq(userMessage, contextText = '') {
 
   const completion = await groq.chat.completions.create({
     messages,
-    model: 'llama-3.1-8b-instant', // fast + free tier
+          // Retired models return a 404 at runtime rather than at build time, so
+      // this is configurable without a code change. llama-3.1-8b-instant was
+      // withdrawn from Groq's catalogue.
+      model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
     temperature: 0.3,
     max_tokens: 500,
   });
